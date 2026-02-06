@@ -98,6 +98,7 @@ def place_blobs(num_blobs):
             "at_food": False,
             "picked_food": False,
             "survive": False,
+            "dove": True
         })
 
     return blobs
