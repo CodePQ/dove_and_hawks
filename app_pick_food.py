@@ -52,7 +52,7 @@ graph_figure = pyc.Figure(screen, SCREEN_WIDTH - 450,
                           SCREEN_HEIGHT//2 - 200, 400, 400)
 
 # Food properties
-food_radius = 3
+FOOD_RADIUS = 3
 food_color = YELLOW
 
 
@@ -76,12 +76,12 @@ def place_food(num_food_per_ring, num_rings):
 
 
 # Blob properties
-blob_radius = 8
-blob_unsafe = RED
-blob_safe = BLUE
+BLOB_RADIUS = 8
 
 
-def place_blobs(num_blobs):
+def place_blobs(num_doves, num_hawks):
+    num_blobs = num_doves + num_hawks
+
     blobs = []
     spacing = 360 / num_blobs
 
@@ -92,13 +92,13 @@ def place_blobs(num_blobs):
 
         blobs.append({
             "pos": pos,
-            "color": blob_unsafe,
+            "color": BLUE if i < num_doves else RED,
             "food": None,
             "food_side": None,
             "at_food": False,
             "picked_food": False,
             "survive": False,
-            "dove": True
+            "dove": True if i < num_doves else False
         })
 
     return blobs
@@ -123,7 +123,9 @@ num_foods = 8
 num_rings = 7
 foods = []
 # -------------------------------------
-num_blobs = 5
+doves = 1
+hawks = 1
+num_blobs = doves + hawks
 blobs = []
 # -------------------------------------
 day_history = [0, 1]
@@ -156,14 +158,14 @@ while running:
         foods = place_food(num_foods, num_rings)
         for food in foods:
             pygame.draw.circle(screen, food["color"],
-                               (int(food["pos"].x), int(food["pos"].y)), food_radius)
+                               (int(food["pos"].x), int(food["pos"].y)), FOOD_RADIUS)
         remaining_food = num_foods * num_rings
 
         # Blob placement
-        blobs = place_blobs(num_blobs)
+        blobs = place_blobs(doves, hawks)
         for blob in blobs:
             pygame.draw.circle(screen, blob["color"],
-                               (int(blob["pos"].x), int(blob["pos"].y)), blob_radius)
+                               (int(blob["pos"].x), int(blob["pos"].y)), BLOB_RADIUS)
         # draw_population_chart(day_history, blob_history)
         screen.blit(day_text_surface, day_text_rect)
         screen.blit(pop_text_surface, pop_text_rect)
@@ -176,7 +178,7 @@ while running:
         # Draw foods
         for food in foods:
             pygame.draw.circle(screen, food["color"],
-                               (int(food["pos"].x), int(food["pos"].y)), food_radius)
+                               (int(food["pos"].x), int(food["pos"].y)), FOOD_RADIUS)
 
         # Blobs movement
         for blob in blobs:
@@ -187,7 +189,6 @@ while running:
                 if choice["more_food"]:
                     # Blob picks food
                     blob["picked_food"] = True
-                    blob["color"] = blob_safe
                     blob["food"] = choice
                     blob["food_side"] = 'left' if (
                         choice["bits"] == 2) else 'right'
@@ -198,12 +199,8 @@ while running:
                         choice["more_food"] = False
                         remaining_food -= 1
 
-            # Blob got no food
-            if blob["food"] == None:
-                blob["survive"] = False
-
             # Blob moves to food
-            elif not blob["at_food"]:
+            if not blob["at_food"]:
                 # Find distance to food
                 dist_vec = blob["pos"] - blob["food"]["pos"]
                 # Move closer to food
@@ -216,17 +213,17 @@ while running:
 
                     # Left of food
                     if blob["food_side"] == 'left':
-                        blob["pos"] = pygame.Vector2(fx - blob_radius - 5, fy)
+                        blob["pos"] = pygame.Vector2(fx - BLOB_RADIUS - 5, fy)
 
                     # Right of food
                     if blob["food_side"] == 'right':
-                        blob["pos"] = pygame.Vector2(fx + blob_radius + 5, fy)
+                        blob["pos"] = pygame.Vector2(fx + BLOB_RADIUS + 5, fy)
 
                     # Blob is in position at food
                     blob["at_food"] = True
 
             pygame.draw.circle(screen, blob["color"],
-                               (int(blob["pos"].x), int(blob["pos"].y)), blob_radius)
+                               (int(blob["pos"].x), int(blob["pos"].y)), BLOB_RADIUS)
 
         screen.blit(day_text_surface, day_text_rect)
         screen.blit(pop_text_surface, pop_text_rect)
@@ -240,16 +237,23 @@ while running:
             end_of_day = True
             pygame.time.wait(500)
 
-    # End day simulation and update population
+    # Blobs eat food and update population
     else:
-        print(F"End of day {num_day}.")
         num_day += 1
-        num_blobs = 0
+        doves = 0
+        hawks = 0
         for blob in blobs:
-            if blob["survive"]:
-                num_blobs += 1
+            if blob["dove"]:
+                doves += 1
+            else:
+                hawks += 1
             if blob["food"]["more_food"]:
-                num_blobs += 1
+                if blob["dove"]:
+                    doves += 1
+                else:
+                    hawks += 1
+
+        num_blobs = doves + hawks
 
         day_history.append(num_day)
         blob_history.append(num_blobs)
