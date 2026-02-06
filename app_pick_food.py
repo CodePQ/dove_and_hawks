@@ -1,4 +1,5 @@
 import pygame
+import pygame_chart as pyc
 import random
 import numpy
 import math
@@ -8,8 +9,8 @@ import sys
 pygame.init()
 
 # Setup display window
-SCREEN_WIDTH = 1000
-SCREEN_HEIGHT = 780
+SCREEN_WIDTH = 1200
+SCREEN_HEIGHT = 700
 screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
 pygame.display.set_caption("Blob Evolution")
 
@@ -42,12 +43,16 @@ pop_text_rect = pop_text_surface.get_rect()
 pop_text_rect.topright = (padding, 50)
 
 # Arena properties
-ARENA_CENTER = pygame.Vector2(SCREEN_WIDTH//2, SCREEN_HEIGHT//2)
+ARENA_CENTER = pygame.Vector2(0.6*SCREEN_WIDTH//2, SCREEN_HEIGHT//2)
 ARENA_RADIUS = min(SCREEN_HEIGHT, SCREEN_WIDTH)//2 - 25
 CONSTANT_SPEED = 5
 
+# Graph properties
+graph_figure = pyc.Figure(screen, SCREEN_WIDTH - 450,
+                          SCREEN_HEIGHT//2 - 200, 400, 400)
+
 # Food properties
-food_radius = 5
+food_radius = 3
 food_color = YELLOW
 
 
@@ -55,9 +60,9 @@ def place_food(num_food_per_ring, num_rings):
     foods = []
 
     for i in range(1, num_rings + 1):
-        radius = i * (ARENA_RADIUS - 50) / 3
+        radius = i * (ARENA_RADIUS - 25) / num_rings
         for j in range(num_food_per_ring):
-            angle = math.radians(360/num_food_per_ring) * j
+            angle = math.radians(360/num_food_per_ring) * j + (i + 1) * 35
             pos = pygame.Vector2(ARENA_CENTER[0] + radius*math.cos(angle),
                                  ARENA_CENTER[1] + radius*math.sin(angle))
 
@@ -71,7 +76,7 @@ def place_food(num_food_per_ring, num_rings):
 
 
 # Blob properties
-blob_radius = 10
+blob_radius = 8
 blob_unsafe = RED
 blob_safe = BLUE
 
@@ -98,19 +103,30 @@ def place_blobs(num_blobs):
     return blobs
 
 
+def draw_population_chart(days, pop):
+    graph_figure.line('Population', days, pop)
+    graph_figure.add_title("Population Growth")
+    graph_figure.add_xaxis_label("Days")
+    graph_figure.add_yaxis_label("Population")
+    graph_figure.draw()
+
+
 # Main game loop
 running = True
 # -------------------------------------
 new_day = True
 end_of_day = False
-num_day = 0
+num_day = 1
 # -------------------------------------
-num_foods = 10
-num_rings = 3
+num_foods = 8
+num_rings = 7
 foods = []
 # -------------------------------------
-num_blobs = 1
+num_blobs = 5
 blobs = []
+# -------------------------------------
+day_history = [0, 1]
+blob_history = [0, num_blobs]
 # -------------------------------------
 while running:
     # End simulation
@@ -122,19 +138,11 @@ while running:
     screen.fill(WHITE)
     pygame.draw.circle(screen, BLACK, ARENA_CENTER, ARENA_RADIUS, 5)
 
-    '''if (all blobs have found food) or (all food is occupied by two blobs):
-        perform dove and hawk responses
-        restart the day:
-            - new food placement
-            - next generation of blobs:
-                - updated dove population
-                - updated hawk population
-    '''
+    # Draw population graph
+    draw_population_chart(day_history, blob_history)
+
     # Load new day environment
     if new_day and not end_of_day:
-
-        num_day += 1
-
         # Day information
         day_text_content = f"Day Count: {num_day}"
         day_text_surface = font.render(day_text_content, True, text_color)
@@ -155,7 +163,7 @@ while running:
         for blob in blobs:
             pygame.draw.circle(screen, blob["color"],
                                (int(blob["pos"].x), int(blob["pos"].y)), blob_radius)
-
+        # draw_population_chart(day_history, blob_history)
         screen.blit(day_text_surface, day_text_rect)
         screen.blit(pop_text_surface, pop_text_rect)
         pygame.display.flip()
@@ -234,6 +242,7 @@ while running:
     # End day simulation and update population
     else:
         print(F"End of day {num_day}.")
+        num_day += 1
         num_blobs = 0
         for blob in blobs:
             if blob["survive"]:
@@ -241,8 +250,15 @@ while running:
             if blob["food"]["more_food"]:
                 num_blobs += 1
 
+        day_history.append(num_day)
+        blob_history.append(num_blobs)
+
         new_day = True
         end_of_day = False
+
+        draw_population_chart(day_history, blob_history)
+
+        pygame.display.flip()
 
     clock.tick(60)
 
