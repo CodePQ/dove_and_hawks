@@ -1,7 +1,7 @@
 import pygame
 import pygame_chart as pyc
 import random
-import numpy
+import numpy as np
 import math
 import sys
 
@@ -12,7 +12,7 @@ pygame.init()
 SCREEN_WIDTH = 1200
 SCREEN_HEIGHT = 700
 screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
-pygame.display.set_caption("Blob Evolution")
+pygame.display.set_caption("Dove vs Hawk")
 
 # Create clock object
 clock = pygame.time.Clock()
@@ -25,20 +25,21 @@ RED = (255, 0, 0)
 YELLOW = (239, 191, 4)
 
 # Text properties
-font = pygame.font.SysFont("Arial", 24)
+font_info = pygame.font.SysFont("Arial", 24)
+font_blob = pygame.font.SysFont("Arial", 50)
 text_color = BLACK
 box_color = (50, 50, 50)
 padding = 100
 
 # Day information
 day_text_content = "Day Count"
-day_text_surface = font.render(day_text_content, True, text_color)
+day_text_surface = font_info.render(day_text_content, True, text_color)
 day_text_rect = day_text_surface.get_rect()
 day_text_rect.topright = (padding, 20)
 
-# Population information
+# Total population information
 pop_text_content = "Population"
-pop_text_surface = font.render(pop_text_content, True, text_color)
+pop_text_surface = font_info.render(pop_text_content, True, text_color)
 pop_text_rect = pop_text_surface.get_rect()
 pop_text_rect.topright = (padding, 50)
 
@@ -49,7 +50,19 @@ CONSTANT_SPEED = 20
 
 # Graph properties
 graph_figure = pyc.Figure(screen, SCREEN_WIDTH - 450,
-                          SCREEN_HEIGHT//2 - 200, 400, 400)
+                          SCREEN_HEIGHT//2 - 325, 400, 400)
+
+# Dove population information
+dove_text_content = "Dove Average: "
+dove_text_surface = font_blob.render(dove_text_content, True, BLUE)
+dove_text_rect = dove_text_surface.get_rect()
+dove_text_rect.topright = (SCREEN_WIDTH - 150, SCREEN_HEIGHT//2 + 100)
+
+# Hawk population information
+hawk_text_content = "Hawk Average: "
+hawk_text_surface = font_blob.render(hawk_text_content, True, RED)
+hawk_text_rect = hawk_text_surface.get_rect()
+hawk_text_rect.topright = (SCREEN_WIDTH - 145, SCREEN_HEIGHT//2 + 200)
 
 # Food properties
 FOOD_RADIUS = 3
@@ -105,8 +118,11 @@ def place_blobs(num_doves, num_hawks):
     return blobs
 
 
-def draw_population_chart(days, pop):
-    graph_figure.line('Population', days, pop)
+def draw_population_chart(days, population):
+    dove_pop = [pop[0] for pop in population]
+    hawk_pop = [sum(pop) for pop in population]
+    graph_figure.line("Dove Population", days, dove_pop, color=BLUE)
+    graph_figure.line("Hawk Population", days, hawk_pop, color=RED)
     graph_figure.add_title("Population Growth")
     graph_figure.add_xaxis_label("Days")
     graph_figure.add_yaxis_label("Population")
@@ -130,7 +146,9 @@ num_blobs = doves + hawks
 blobs = []
 # -------------------------------------
 day_history = [0, 1]
-blob_history = [0, num_blobs]
+blob_history = [[0, 0], [doves, hawks]]
+dove_avg = round(np.mean([hist[0]/sum(hist) for hist in blob_history[1:]]), 3)
+hawk_avg = 1 - dove_avg
 # -------------------------------------
 while running:
     # End simulation
@@ -149,13 +167,23 @@ while running:
     if new_day:
         # Day information
         day_text_content = f"Day Count: {num_day}"
-        day_text_surface = font.render(day_text_content, True, text_color)
+        day_text_surface = font_info.render(day_text_content, True, text_color)
         screen.blit(day_text_surface, day_text_rect)
 
-        # Population information
+        # Total population information
         pop_text_content = f"Population: {num_blobs}"
-        pop_text_surface = font.render(pop_text_content, True, text_color)
+        pop_text_surface = font_info.render(pop_text_content, True, text_color)
         screen.blit(pop_text_surface, pop_text_rect)
+
+        # dove population information
+        dove_text_content = f"Dove Average: {dove_avg}"
+        dove_text_surface = font_blob.render(dove_text_content, True, BLUE)
+        screen.blit(dove_text_surface, dove_text_rect)
+
+        # Hawk population information
+        hawk_text_content = f"Hawk Average: {hawk_avg}"
+        hawk_text_surface = font_blob.render(hawk_text_content, True, RED)
+        screen.blit(hawk_text_surface, hawk_text_rect)
 
         # Food placement
         foods = place_food(num_foods, num_rings)
@@ -234,6 +262,8 @@ while running:
 
         screen.blit(day_text_surface, day_text_rect)
         screen.blit(pop_text_surface, pop_text_rect)
+        screen.blit(dove_text_surface, dove_text_rect)
+        screen.blit(hawk_text_surface, hawk_text_rect)
         pygame.display.flip()
 
         # Check if all blobs that found food are at the food
@@ -276,7 +306,19 @@ while running:
 
                     # Both are hawks, so they fight and die
                     else:
-                        continue  # Essentially hawks += 0
+                        for _ in range(2):
+                            '''Try these different setups to see changes in the simulation.'''
+                            # 0% chance hawk survives
+                            hawks += 1 if random.randint(1, 1) == 2 else 0
+
+                            # 25% chance hawk survives
+                            # hawks += 1 if random.randint(1, 4) == 1 else 0
+
+                            # 50% chance hawk survives
+                            # hawks += 1 if random.randint(1, 4) <= 2 else 0
+
+                            # 75% chance hawk survives
+                            # hawks += 1 if random.randint(1, 4) != 4 else 0
 
                 # One is dove and one is hawk
                 else:
@@ -291,7 +333,11 @@ while running:
 
         num_day += 1
         day_history.append(num_day)
-        blob_history.append(num_blobs)
+        blob_history.append([doves, hawks])
+
+        dove_avg = round(np.mean([hist[0]/sum(hist)
+                         for hist in blob_history[1:]]), 3)
+        hawk_avg = round(1 - dove_avg, 3)
 
         new_day = True
         end_of_day = False
