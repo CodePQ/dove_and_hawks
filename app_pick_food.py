@@ -45,14 +45,14 @@ pop_text_rect.topright = (padding, 50)
 # Arena properties
 ARENA_CENTER = pygame.Vector2(0.6*SCREEN_WIDTH//2, SCREEN_HEIGHT//2)
 ARENA_RADIUS = min(SCREEN_HEIGHT, SCREEN_WIDTH)//2 - 25
-CONSTANT_SPEED = 5
+CONSTANT_SPEED = 20
 
 # Graph properties
 graph_figure = pyc.Figure(screen, SCREEN_WIDTH - 450,
                           SCREEN_HEIGHT//2 - 200, 400, 400)
 
 # Food properties
-food_radius = 3
+FOOD_RADIUS = 3
 food_color = YELLOW
 
 
@@ -67,21 +67,23 @@ def place_food(num_food_per_ring, num_rings):
                                  ARENA_CENTER[1] + radius*math.sin(angle))
 
             foods.append({
-                "pos": pos,
                 "color": food_color,
+                "pos": pos,
                 "bits": 2,
-                "more_food": True
+                "more_food": True,
+                "blob1": None,
+                "blob2": None
             })
     return foods
 
 
 # Blob properties
-blob_radius = 8
-blob_unsafe = RED
-blob_safe = BLUE
+BLOB_RADIUS = 8
 
 
-def place_blobs(num_blobs):
+def place_blobs(num_doves, num_hawks):
+    num_blobs = num_doves + num_hawks
+
     blobs = []
     spacing = 360 / num_blobs
 
@@ -91,13 +93,13 @@ def place_blobs(num_blobs):
                                             math.sin(start_angle))*ARENA_RADIUS
 
         blobs.append({
+            "dove": True if i < num_doves else False,
+            "color": BLUE if i < num_doves else RED,
             "pos": pos,
-            "color": blob_unsafe,
-            "food": None,
-            "food_side": None,
-            "at_food": False,
             "picked_food": False,
-            "survive": False,
+            "food": None,
+            "at_food": False,
+            "food_side": None,
         })
 
     return blobs
@@ -122,7 +124,9 @@ num_foods = 8
 num_rings = 7
 foods = []
 # -------------------------------------
-num_blobs = 5
+doves = 5
+hawks = 5
+num_blobs = doves + hawks
 blobs = []
 # -------------------------------------
 day_history = [0, 1]
@@ -142,71 +146,72 @@ while running:
     draw_population_chart(day_history, blob_history)
 
     # Load new day environment
-    if new_day and not end_of_day:
+    if new_day:
         # Day information
         day_text_content = f"Day Count: {num_day}"
         day_text_surface = font.render(day_text_content, True, text_color)
+        screen.blit(day_text_surface, day_text_rect)
 
         # Population information
         pop_text_content = f"Population: {num_blobs}"
         pop_text_surface = font.render(pop_text_content, True, text_color)
+        screen.blit(pop_text_surface, pop_text_rect)
 
         # Food placement
         foods = place_food(num_foods, num_rings)
         for food in foods:
             pygame.draw.circle(screen, food["color"],
-                               (int(food["pos"].x), int(food["pos"].y)), food_radius)
+                               (int(food["pos"].x), int(food["pos"].y)), FOOD_RADIUS)
         remaining_food = num_foods * num_rings
 
         # Blob placement
-        blobs = place_blobs(num_blobs)
+        blobs = place_blobs(doves, hawks)
         for blob in blobs:
             pygame.draw.circle(screen, blob["color"],
-                               (int(blob["pos"].x), int(blob["pos"].y)), blob_radius)
-        # draw_population_chart(day_history, blob_history)
-        screen.blit(day_text_surface, day_text_rect)
-        screen.blit(pop_text_surface, pop_text_rect)
+                               (int(blob["pos"].x), int(blob["pos"].y)), BLOB_RADIUS)
+
         pygame.display.flip()
-        pygame.time.wait(1000)
+        pygame.time.wait(100)
         new_day = False
 
     # Start day simulation
-    elif not new_day and not end_of_day:
+    elif not end_of_day:
         # Draw foods
         for food in foods:
             pygame.draw.circle(screen, food["color"],
-                               (int(food["pos"].x), int(food["pos"].y)), food_radius)
+                               (int(food["pos"].x), int(food["pos"].y)), FOOD_RADIUS)
 
         # Blobs movement
         for blob in blobs:
-            # Select food to go to
+            # Choose a food
             while (not blob["picked_food"]) and (remaining_food > 0):
                 choice = random.choice(foods)
                 # Check if there is still food where blob is looking
                 if choice["more_food"]:
                     # Blob picks food
                     blob["picked_food"] = True
-                    blob["color"] = blob_safe
                     blob["food"] = choice
                     blob["food_side"] = 'left' if (
                         choice["bits"] == 2) else 'right'
-                    blob["survive"] = True
+
+                    # Food updates
                     choice["bits"] -= 1
+                    if choice["blob1"]:
+                        choice["blob2"] = blob
+                    else:
+                        choice["blob1"] = blob
                     # No more bits at chosen food
                     if choice["bits"] == 0:
                         choice["more_food"] = False
                         remaining_food -= 1
 
-            # Blob got no food
-            if blob["food"] == None:
-                blob["survive"] = False
-
             # Blob moves to food
-            elif not blob["at_food"]:
+            if not blob["at_food"]:
                 # Find distance to food
                 dist_vec = blob["pos"] - blob["food"]["pos"]
+
                 # Move closer to food
-                if dist_vec.length() >= 5:
+                if dist_vec.length() >= 10:
                     blob["pos"] -= dist_vec.normalize()*CONSTANT_SPEED
 
                 # Position blob at food
@@ -215,41 +220,76 @@ while running:
 
                     # Left of food
                     if blob["food_side"] == 'left':
-                        blob["pos"] = pygame.Vector2(fx - blob_radius - 5, fy)
+                        blob["pos"] = pygame.Vector2(fx - BLOB_RADIUS - 5, fy)
 
                     # Right of food
                     if blob["food_side"] == 'right':
-                        blob["pos"] = pygame.Vector2(fx + blob_radius + 5, fy)
+                        blob["pos"] = pygame.Vector2(fx + BLOB_RADIUS + 5, fy)
 
                     # Blob is in position at food
                     blob["at_food"] = True
 
             pygame.draw.circle(screen, blob["color"],
-                               (int(blob["pos"].x), int(blob["pos"].y)), blob_radius)
+                               (int(blob["pos"].x), int(blob["pos"].y)), BLOB_RADIUS)
 
         screen.blit(day_text_surface, day_text_rect)
         screen.blit(pop_text_surface, pop_text_rect)
         pygame.display.flip()
 
         # Check if all blobs that found food are at the food
-        blobs_survived = [blob for blob in blobs if blob["survive"]]
-        if all(blob["at_food"] for blob in blobs_survived):
-            blobs = blobs_survived
-            num_blobs = len(blobs_survived)
+        blobs_found_food = [blob for blob in blobs if blob["picked_food"]]
+        if all(blob["at_food"] for blob in blobs_found_food):
+            blobs = blobs_found_food
             end_of_day = True
-            pygame.time.wait(500)
+            pygame.time.wait(250)
 
-    # End day simulation and update population
+    # Blobs eat food and update population
     else:
-        print(F"End of day {num_day}.")
-        num_day += 1
-        num_blobs = 0
-        for blob in blobs:
-            if blob["survive"]:
-                num_blobs += 1
-            if blob["food"]["more_food"]:
-                num_blobs += 1
+        doves = 0
+        hawks = 0
 
+        for food in foods:
+            # No blob chose this food
+            if not food["blob1"]:
+                continue
+
+            # Only one blob chose this food
+            elif food["blob1"] and not food["blob2"]:
+                blob = food["blob1"]
+                # Blob is a dove
+                if blob["dove"]:
+                    doves += 2
+                # Blob is a hawk
+                else:
+                    hawks += 2
+
+            # Two blobs chose this food
+            else:
+                blob1 = food["blob1"]
+                blob2 = food["blob2"]
+
+                # Same type of blob
+                if blob1["dove"] == blob2["dove"]:
+                    # Both are doves, so they share
+                    if blob1["dove"]:
+                        doves += 2
+
+                    # Both are hawks, so they fight and die
+                    else:
+                        continue  # Essentially hawks += 0
+
+                # One is dove and one is hawk
+                else:
+                    # Dove has a 50% chance of surviving
+                    doves += 1 if random.randint(0, 1) == 1 else 0
+
+                    # Hawk has a 100% chance of surviving, 50% chance to reproduce
+                    hawks += 2 if random.randint(0, 1) == 1 else 1
+
+        # New population of blobs
+        num_blobs = doves + hawks
+
+        num_day += 1
         day_history.append(num_day)
         blob_history.append(num_blobs)
 
