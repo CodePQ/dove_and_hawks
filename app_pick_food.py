@@ -26,7 +26,8 @@ YELLOW = (239, 191, 4)
 
 # Text properties
 font_info = pygame.font.SysFont("Arial", 24)
-font_blob = pygame.font.SysFont("Arial", 50)
+font_pop = pygame.font.SysFont("Arial", 50)
+font_pop_avg = pygame.font.SysFont("Arial", 25)
 text_color = BLACK
 box_color = (50, 50, 50)
 padding = 100
@@ -44,7 +45,7 @@ pop_text_rect = pop_text_surface.get_rect()
 pop_text_rect.topright = (padding, 50)
 
 # Arena properties
-ARENA_CENTER = pygame.Vector2(0.6*SCREEN_WIDTH//2, SCREEN_HEIGHT//2)
+ARENA_CENTER = pygame.Vector2(0.65*SCREEN_WIDTH//2, SCREEN_HEIGHT//2)
 ARENA_RADIUS = min(SCREEN_HEIGHT, SCREEN_WIDTH)//2 - 25
 CONSTANT_SPEED = 20
 
@@ -53,16 +54,26 @@ graph_figure = pyc.Figure(screen, SCREEN_WIDTH - 450,
                           SCREEN_HEIGHT//2 - 325, 400, 400)
 
 # Dove population information
-dove_text_content = "Dove Average: "
-dove_text_surface = font_blob.render(dove_text_content, True, BLUE)
-dove_text_rect = dove_text_surface.get_rect()
-dove_text_rect.topright = (SCREEN_WIDTH - 150, SCREEN_HEIGHT//2 + 100)
+dove_pop_text_content = "Dove Population: "
+dove_pop_text_surface = font_pop.render(dove_pop_text_content, True, BLUE)
+dove_pop_text_rect = dove_pop_text_surface.get_rect()
+dove_pop_text_rect.topright = (SCREEN_WIDTH - 100, SCREEN_HEIGHT//2 + 100)
+
+dove_avg_text_content = "Dove Average Proportion: "
+dove_avg_text_surface = font_pop_avg.render(dove_avg_text_content, True, BLACK)
+dove_avg_text_rect = dove_avg_text_surface.get_rect()
+dove_avg_text_rect.topright = (SCREEN_WIDTH - 150, SCREEN_HEIGHT//2 + 150)
 
 # Hawk population information
-hawk_text_content = "Hawk Average: "
-hawk_text_surface = font_blob.render(hawk_text_content, True, RED)
-hawk_text_rect = hawk_text_surface.get_rect()
-hawk_text_rect.topright = (SCREEN_WIDTH - 145, SCREEN_HEIGHT//2 + 200)
+hawk_pop_text_content = "Hawk Population: "
+hawk_pop_text_surface = font_pop.render(hawk_pop_text_content, True, RED)
+hawk_pop_text_rect = hawk_pop_text_surface.get_rect()
+hawk_pop_text_rect.topright = (SCREEN_WIDTH - 95, SCREEN_HEIGHT//2 + 200)
+
+hawk_avg_text_content = "Hawk Average Proportion: "
+hawk_avg_text_surface = font_pop_avg.render(hawk_avg_text_content, True, BLACK)
+hawk_avg_text_rect = hawk_avg_text_surface.get_rect()
+hawk_avg_text_rect.topright = (SCREEN_WIDTH - 145, SCREEN_HEIGHT//2 + 250)
 
 # Food properties
 FOOD_RADIUS = 3
@@ -140,7 +151,7 @@ num_foods = 8
 num_rings = 7
 foods = []
 # -------------------------------------
-doves = 5
+doves = 20
 hawks = 5
 num_blobs = doves + hawks
 blobs = []
@@ -148,7 +159,7 @@ blobs = []
 day_history = [0, 1]
 blob_history = [[0, 0], [doves, hawks]]
 dove_avg = round(np.mean([hist[0]/sum(hist) for hist in blob_history[1:]]), 3)
-hawk_avg = 1 - dove_avg
+hawk_avg = round(1 - dove_avg, 3)
 # -------------------------------------
 while running:
     # End simulation
@@ -175,15 +186,27 @@ while running:
         pop_text_surface = font_info.render(pop_text_content, True, text_color)
         screen.blit(pop_text_surface, pop_text_rect)
 
-        # dove population information
-        dove_text_content = f"Dove Average: {dove_avg}"
-        dove_text_surface = font_blob.render(dove_text_content, True, BLUE)
-        screen.blit(dove_text_surface, dove_text_rect)
+        # Dove population information
+        dove_pop_text_content = f"Dove Population: {doves}"
+        dove_pop_text_surface = font_pop.render(
+            dove_pop_text_content, True, BLUE)
+        screen.blit(dove_pop_text_surface, dove_pop_text_rect)
+
+        dove_avg_text_content = f"Dove Average Proportion: {dove_avg}"
+        dove_avg_text_surface = font_pop_avg.render(
+            dove_avg_text_content, True, BLACK)
+        screen.blit(dove_avg_text_surface, dove_avg_text_rect)
 
         # Hawk population information
-        hawk_text_content = f"Hawk Average: {hawk_avg}"
-        hawk_text_surface = font_blob.render(hawk_text_content, True, RED)
-        screen.blit(hawk_text_surface, hawk_text_rect)
+        hawk_pop_text_content = f"Hawk Population: {hawks}"
+        hawk_pop_text_surface = font_pop.render(
+            hawk_pop_text_content, True, RED)
+        screen.blit(hawk_pop_text_surface, hawk_pop_text_rect)
+
+        hawk_avg_text_content = f"Hawk Average Proportion: {hawk_avg}"
+        hawk_avg_text_surface = font_pop_avg.render(
+            hawk_avg_text_content, True, BLACK)
+        screen.blit(hawk_avg_text_surface, hawk_avg_text_rect)
 
         # Food placement
         foods = place_food(num_foods, num_rings)
@@ -234,8 +257,9 @@ while running:
                         remaining_food -= 1
 
             # Blob moves to food
-            if not blob["at_food"]:
+            if not blob["at_food"] and blob["picked_food"]:
                 # Find distance to food
+                # FIXME: TypeError: 'NoneType' object is not subscriptable
                 dist_vec = blob["pos"] - blob["food"]["pos"]
 
                 # Move closer to food
@@ -262,8 +286,10 @@ while running:
 
         screen.blit(day_text_surface, day_text_rect)
         screen.blit(pop_text_surface, pop_text_rect)
-        screen.blit(dove_text_surface, dove_text_rect)
-        screen.blit(hawk_text_surface, hawk_text_rect)
+        screen.blit(dove_pop_text_surface, dove_pop_text_rect)
+        screen.blit(dove_avg_text_surface, dove_avg_text_rect)
+        screen.blit(hawk_pop_text_surface, hawk_pop_text_rect)
+        screen.blit(hawk_avg_text_surface, hawk_avg_text_rect)
         pygame.display.flip()
 
         # Check if all blobs that found food are at the food
@@ -271,7 +297,7 @@ while running:
         if all(blob["at_food"] for blob in blobs_found_food):
             blobs = blobs_found_food
             end_of_day = True
-            pygame.time.wait(250)
+            pygame.time.wait(100)
 
     # Blobs eat food and update population
     else:
